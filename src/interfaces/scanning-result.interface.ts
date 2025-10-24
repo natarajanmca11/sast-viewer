@@ -132,9 +132,16 @@ export interface AzureDevOpsScanningRequestParams extends ScanningRequestParams 
   projectName?: string; // Override for when application name is in project/app format
 }
 
+// Error record for applications that failed to scan
+export interface ApplicationError {
+  applicationName: string;
+  error: string;
+}
+
 // Aggregated result for multiple applications
 export interface MultiApplicationAggregatedScanningResult {
   applications: AggregatedScanningResult[];
+  errors: ApplicationError[];
   summary: {
     totalApplications: number;
     totalGithubCodeScanningIssues: number;

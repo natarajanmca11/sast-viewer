@@ -197,7 +197,7 @@ const renderSingleApplicationReport = (data: AggregatedScanningResult): string =
 };
 
 const renderMultiApplicationReport = (data: MultiApplicationAggregatedScanningResult): string => {
-  const { applications, summary, timestamp } = data;
+  const { applications, errors, summary, timestamp } = data;
   
   // Generate HTML for each application's detailed results
   const applicationSections = applications.map(app => {
@@ -332,6 +332,22 @@ const renderMultiApplicationReport = (data: MultiApplicationAggregatedScanningRe
     `;
   }).join('');
 
+  // Generate error section if there are any errors
+  const errorSection = errors && errors.length > 0 ? `
+    <div class="error-section">
+      <h2>Application Errors</h2>
+      <div class="error-list">
+        ${errors.map(error => `
+          <div class="error-item">
+            <h3>Application: ${error.applicationName}</h3>
+            <p><strong>Error:</strong> ${error.error}</p>
+          </div>
+          <hr />
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
   // Generate overall summary card HTML
   const overallSummaryCard = `
     <div class="overall-summary">
@@ -340,6 +356,16 @@ const renderMultiApplicationReport = (data: MultiApplicationAggregatedScanningRe
         <div class="summary-card">
           <h3>Total Applications</h3>
           <p><strong>${summary.totalApplications}</strong></p>
+        </div>
+        
+        <div class="summary-card">
+          <h3>Successfully Processed</h3>
+          <p><strong>${applications.length - (errors ? errors.length : 0)}</strong></p>
+        </div>
+        
+        <div class="summary-card">
+          <h3>Failed Applications</h3>
+          <p><strong>${errors ? errors.length : 0}</strong></p>
         </div>
         
         <div class="summary-card">
@@ -410,7 +436,7 @@ const renderMultiApplicationReport = (data: MultiApplicationAggregatedScanningRe
         border-radius: 5px; 
         padding: 15px; 
         flex: 1; 
-        min-width: 150px; 
+        min-width: 130px; 
       }
       .summary-card h3 { margin-top: 0; }
       table { width: 100%; border-collapse: collapse; margin: 20px 0; }
@@ -430,6 +456,9 @@ const renderMultiApplicationReport = (data: MultiApplicationAggregatedScanningRe
       hr { margin: 40px 0; border: 0; border-top: 1px solid #eee; }
       .overall-summary { margin-bottom: 40px; }
       .severity-summary { margin-top: 30px; }
+      .error-section { margin: 40px 0; padding: 20px; border: 1px solid #ffcccc; background-color: #fff5f5; border-radius: 5px; }
+      .error-item { margin: 20px 0; padding: 15px; background-color: #ffffff; border: 1px solid #ffdddd; border-radius: 3px; }
+      .error-item h3 { margin-top: 0; color: #d00; }
     </style>
   </head>
   <body>
@@ -439,6 +468,8 @@ const renderMultiApplicationReport = (data: MultiApplicationAggregatedScanningRe
     </div>
 
     ${overallSummaryCard}
+
+    ${errorSection}
 
     ${applicationSections}
 

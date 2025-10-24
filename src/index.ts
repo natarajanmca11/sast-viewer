@@ -76,57 +76,91 @@ async function main(): Promise<void> {
     
     // Scan each application and collect results
     const allApplicationsResults: AggregatedScanningResult[] = [];
+    const applicationErrors: Array<{ applicationName: string, error: string }> = [];
     
     for (const fullAppName of APPLICATION_NAMES) {
       Logger.info(`Processing application: ${fullAppName}`);
       
-      // Extract project and application names if using project/application format
-      const parsedApp = parseApplicationName(fullAppName);
-      const extractedAppName = parsedApp.applicationName;
-      
-      // Use the extracted application name for GitHub (repository name)
-      // Use the extracted project name for Azure DevOps (project name override)
-      
-      // Define request parameters for this application
-      const params: ScanningRequestParams = {
-        applicationName: extractedAppName,
-        branchName: BRANCH_NAME
-      };
-      
-      // Fetch all scanning results in parallel for this application
-      Logger.info(`Fetching GitHub code scanning results for ${extractedAppName} on branch ${BRANCH_NAME}...`);
-      const githubCodeResults = await githubCodeService.fetchCodeScanningResults(params);
-      
-      Logger.info(`Fetching GitHub dependency scanning results for ${extractedAppName} on branch ${BRANCH_NAME}...`);
-      const githubDependencyResults = await githubDependencyService.fetchDependencyScanningResults(params);
-      
-      Logger.info(`Fetching Azure DevOps code scanning results for ${extractedAppName} on branch ${BRANCH_NAME}...`);
-      const azureDevOpsCodeResults = await azureDevOpsCodeService.fetchCodeScanningResults(params);
-      
-      Logger.info(`Fetching Azure DevOps dependency scanning results for ${extractedAppName} on branch ${BRANCH_NAME}...`);
-      const azureDevOpsDependencyResults = await azureDevOpsDependencyService.fetchDependencyScanningResults(params);
-      
-      // Create aggregation for this specific application
-      const appResults: AggregatedScanningResult = {
-        applicationName: extractedAppName,
-        branchName: BRANCH_NAME,
-        githubResults: {
-          codeScanning: githubCodeResults,
-          dependencyScanning: githubDependencyResults
-        },
-        azureDevOpsResults: {
-          codeScanning: azureDevOpsCodeResults,
-          dependencyScanning: azureDevOpsDependencyResults
-        },
-        timestamp: new Date()
-      };
-      
-      Logger.info(`Application ${extractedAppName}: Fetched ${githubCodeResults.length} GitHub code scanning results`);
-      Logger.info(`Application ${extractedAppName}: Fetched ${githubDependencyResults.length} GitHub dependency scanning results`);
-      Logger.info(`Application ${extractedAppName}: Fetched ${azureDevOpsCodeResults.length} Azure DevOps code scanning results`);
-      Logger.info(`Application ${extractedAppName}: Fetched ${azureDevOpsDependencyResults.length} Azure DevOps dependency scanning results`);
-      
-      allApplicationsResults.push(appResults);
+      try {
+        // Extract project and application names if using project/application format
+        const parsedApp = parseApplicationName(fullAppName);
+        const extractedAppName = parsedApp.applicationName;
+        
+        // Use the extracted application name for GitHub (repository name)
+        // Use the extracted project name for Azure DevOps (project name override)
+        
+        // Define request parameters for this application
+        const params: ScanningRequestParams = {
+          applicationName: extractedAppName,
+          branchName: BRANCH_NAME
+        };
+        
+        // Fetch all scanning results in parallel for this application
+        Logger.info(`Fetching GitHub code scanning results for ${extractedAppName} on branch ${BRANCH_NAME}...`);
+        const githubCodeResults = await githubCodeService.fetchCodeScanningResults(params);
+        
+        Logger.info(`Fetching GitHub dependency scanning results for ${extractedAppName} on branch ${BRANCH_NAME}...`);
+        const githubDependencyResults = await githubDependencyService.fetchDependencyScanningResults(params);
+        
+        Logger.info(`Fetching Azure DevOps code scanning results for ${extractedAppName} on branch ${BRANCH_NAME}...`);
+        const azureDevOpsCodeResults = await azureDevOpsCodeService.fetchCodeScanningResults(params);
+        
+        Logger.info(`Fetching Azure DevOps dependency scanning results for ${extractedAppName} on branch ${BRANCH_NAME}...`);
+        const azureDevOpsDependencyResults = await azureDevOpsDependencyService.fetchDependencyScanningResults(params);
+        
+        // Create aggregation for this specific application
+        const appResults: AggregatedScanningResult = {
+          applicationName: extractedAppName,
+          branchName: BRANCH_NAME,
+          githubResults: {
+            codeScanning: githubCodeResults,
+            dependencyScanning: githubDependencyResults
+          },
+          azureDevOpsResults: {
+            codeScanning: azureDevOpsCodeResults,
+            dependencyScanning: azureDevOpsDependencyResults
+          },
+          timestamp: new Date()
+        };
+        
+        Logger.info(`Application ${extractedAppName}: Fetched ${githubCodeResults.length} GitHub code scanning results`);
+        Logger.info(`Application ${extractedAppName}: Fetched ${githubDependencyResults.length} GitHub dependency scanning results`);
+        Logger.info(`Application ${extractedAppName}: Fetched ${azureDevOpsCodeResults.length} Azure DevOps code scanning results`);
+        Logger.info(`Application ${extractedAppName}: Fetched ${azureDevOpsDependencyResults.length} Azure DevOps dependency scanning results`);
+        
+        allApplicationsResults.push(appResults);
+      } catch (error: any) {
+        Logger.error(`Error processing application ${fullAppName}: ${error.message}`);
+        
+        // Create an error result to include in the report
+        const errorResult: AggregatedScanningResult = {
+          applicationName: fullAppName,
+          branchName: BRANCH_NAME,
+          githubResults: {
+            codeScanning: [],
+            dependencyScanning: []
+          },
+          azureDevOpsResults: {
+            codeScanning: [],
+            dependencyScanning: []
+          },
+          timestamp: new Date(),
+        };
+        
+        // Store the error message as a special type of scanning result
+        // For this, I'll add an error field to the interface, but for now, I'll add it to the summary
+        Logger.warn(`Application ${fullAppName} failed, but continuing with other applications...`);
+        
+        // Add a special error placeholder that will be detectable in the report
+        // For now, I'll store the error information separately and add it to the summary later
+        applicationErrors.push({
+          applicationName: fullAppName,
+          error: error.message
+        });
+        
+        // Still add the error result to the collection to maintain array structure
+        allApplicationsResults.push(errorResult);
+      }
     }
     
     // Calculate summary statistics for all applications
@@ -169,6 +203,7 @@ async function main(): Promise<void> {
     // Create multi-application aggregated results
     const multiAppResults: MultiApplicationAggregatedScanningResult = {
       applications: allApplicationsResults,
+      errors: applicationErrors,
       summary: {
         totalApplications: APPLICATION_NAMES.length,
         totalGithubCodeScanningIssues,
