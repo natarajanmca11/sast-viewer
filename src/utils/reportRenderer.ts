@@ -1,4 +1,4 @@
-import { AggregatedScanningResult, MultiApplicationAggregatedScanningResult } from '../interfaces/scanning-result.interface';
+import { AggregatedScanningResult, MultiApplicationAggregatedScanningResult, VulnerabilityReportItem } from '../interfaces/scanning-result.interface';
 
 // Type guard to check if data is for multiple applications
 function isMultiApplicationData(data: any): data is MultiApplicationAggregatedScanningResult {
@@ -199,163 +199,186 @@ const renderSingleApplicationReport = (data: AggregatedScanningResult): string =
 const renderMultiApplicationReport = (data: MultiApplicationAggregatedScanningResult): string => {
   const { applications, errors, summary, timestamp } = data;
   
-  // Generate results table HTML for this application
-  const renderResultsTable = (results: any[], title: string): string => {
-    if (!results || results.length === 0) {
-      return `<p>No ${title} results found</p>`;
-    }
-
-    let tableRows = '';
-    results.forEach(result => {
-      tableRows += `
-        <tr>
-          <td>${result.id || ''}</td>
-          <td>${result.name || ''}</td>
-          <td class="severity-${result.severity}">
-            ${result.severity ? result.severity.toUpperCase() : ''}
-          </td>
-          <td>${result.description || ''}</td>
-          <td>${result.state || ''}</td>
-          <td>${result.tool || ''}</td>
-        </tr>
-      `;
-    });
-
-    return `
-      <div class="results-table">
-        <h4>${title}</h4>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Severity</th>
-              <th>Description</th>
-              <th>State</th>
-              <th>Tool</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-      </div>
-    `;
-  };
+  // Create a comprehensive array of all vulnerabilities from all applications
+  const allVulnerabilities: VulnerabilityReportItem[] = [];
   
-  // Generate application grid HTML
-  const applicationGrid = `
-    <div class="application-grid">
-      <h2>Applications</h2>
-      ${applications.map(app => {
-        // Determine the repository type based on which results have data
-        let repoType = "Unknown";
-        if (app.githubResults.codeScanning.length > 0 || app.githubResults.dependencyScanning.length > 0) {
-          repoType = "GitHub";
-        } else if (app.azureDevOpsResults.codeScanning.length > 0 || app.azureDevOpsResults.dependencyScanning.length > 0) {
-          repoType = "Azure DevOps";
+  applications.forEach(app => {
+    // Add GitHub Code Scanning results
+    app.githubResults.codeScanning.forEach(result => {
+      allVulnerabilities.push({
+        application: app.applicationName,
+        tool: 'GitHub',
+        type: 'Code Scanning',
+        id: result.id,
+        name: result.name,
+        severity: result.severity,
+        description: result.description,
+        state: result.state,
+        url: result.url,
+        additionalInfo: {
+          ruleId: result.ruleId,
+          ruleName: result.ruleName,
+          ruleSeverity: result.ruleSeverity,
+          filePath: result.filePath,
+          startLine: result.startLine,
+          endLine: result.endLine,
+          startColumn: result.startColumn,
+          endColumn: result.endColumn,
+          codeSnippet: result.codeSnippet,
+          cwes: result.cwes,
+          tags: result.tags
         }
-        
-        // Count total issues for this application
-        const totalIssues = 
-          app.githubResults.codeScanning.length + 
-          app.githubResults.dependencyScanning.length + 
-          app.azureDevOpsResults.codeScanning.length + 
-          app.azureDevOpsResults.dependencyScanning.length;
-        
-        // Count by severity for this application
-        const severityCounts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, warning: 0, note: 0 };
-        
-        [...app.githubResults.codeScanning, ...app.githubResults.dependencyScanning, 
-         ...app.azureDevOpsResults.codeScanning, ...app.azureDevOpsResults.dependencyScanning]
-        .forEach(result => {
-          severityCounts[result.severity] = (severityCounts[result.severity] || 0) + 1;
-        });
-        
-        return `
-          <div class="application-card">
-            <div class="app-header">
-              <h3>${app.applicationName}</h3>
-              <span class="repo-type ${repoType.toLowerCase().replace(' ', '-')}">${repoType}</span>
-            </div>
-            <p class="branch">Branch: ${app.branchName}</p>
-            <div class="app-summary">
-              <div class="total-issues">
-                <strong>Total Issues:</strong> ${totalIssues}
-              </div>
-              <div class="severity-breakdown">
-                <div class="severity critical">Critical: ${severityCounts.critical}</div>
-                <div class="severity high">High: ${severityCounts.high}</div>
-                <div class="severity medium">Medium: ${severityCounts.medium}</div>
-                <div class="severity low">Low: ${severityCounts.low}</div>
-              </div>
-            </div>
-            <details class="app-details">
-              <summary>View Details</summary>
-              <div class="app-results">
-                ${
-                  (app.githubResults.codeScanning.length > 0 || app.githubResults.dependencyScanning.length > 0) 
-                  ? `
-                    <div class="github-section">
-                      <h4>GitHub Results</h4>
-                      ${
-                        app.githubResults.codeScanning.length > 0 
-                        ? `
-                          <div class="github-code">
-                            <h5>Code Scanning: ${app.githubResults.codeScanning.length} issues</h5>
-                            ${renderResultsTable(app.githubResults.codeScanning, "Code Scanning Results")}
-                          </div>
-                        ` 
-                        : ''
-                      }
-                      ${
-                        app.githubResults.dependencyScanning.length > 0 
-                        ? `
-                          <div class="github-dependency">
-                            <h5>Dependency Scanning: ${app.githubResults.dependencyScanning.length} issues</h5>
-                            ${renderResultsTable(app.githubResults.dependencyScanning, "Dependency Scanning Results")}
-                          </div>
-                        ` 
-                        : ''
-                      }
+      });
+    });
+    
+    // Add GitHub Dependency Scanning results
+    app.githubResults.dependencyScanning.forEach(result => {
+      allVulnerabilities.push({
+        application: app.applicationName,
+        tool: 'GitHub',
+        type: 'Dependency Scanning',
+        id: result.id,
+        name: result.name,
+        severity: result.severity,
+        description: result.description,
+        state: result.state,
+        url: result.url,
+        additionalInfo: {
+          ecosystem: result.ecosystem,
+          packageName: result.packageName,
+          version: result.version,
+          fixedVersion: result.fixedVersion,
+          cveId: result.cveId,
+          cvss: result.cvss
+        }
+      });
+    });
+    
+    // Add Azure DevOps Code Scanning results
+    app.azureDevOpsResults.codeScanning.forEach(result => {
+      allVulnerabilities.push({
+        application: app.applicationName,
+        tool: 'Azure DevOps',
+        type: 'Code Scanning',
+        id: result.id,
+        name: result.name,
+        severity: result.severity,
+        description: result.description,
+        state: result.state,
+        url: result.url,
+        additionalInfo: {
+          ruleId: result.ruleId,
+          ruleName: result.ruleName,
+          ruleSeverity: result.ruleSeverity,
+          filePath: result.filePath,
+          line: result.line,
+          column: result.column,
+          snippet: result.snippet,
+          type: result.type
+        }
+      });
+    });
+    
+    // Add Azure DevOps Dependency Scanning results
+    app.azureDevOpsResults.dependencyScanning.forEach(result => {
+      allVulnerabilities.push({
+        application: app.applicationName,
+        tool: 'Azure DevOps',
+        type: 'Dependency Scanning',
+        id: result.id,
+        name: result.name,
+        severity: result.severity,
+        description: result.description,
+        state: result.state,
+        url: result.url,
+        additionalInfo: {
+          package: result.package,
+          packageVersion: result.packageVersion,
+          vulnerabilityId: result.vulnerabilityId,
+          cvssScore: result.cvssScore,
+          severityLevel: result.severityLevel
+        }
+      });
+    });
+  });
+  
+  // Generate the material design table HTML
+  const vulnerabilitiesTable = `
+    <div class="vulnerabilities-table-container">
+      <h2>Security Issues Summary</h2>
+      <table class="material-table">
+        <thead>
+          <tr>
+            <th>Application</th>
+            <th>Type</th>
+            <th>Tool</th>
+            <th>Severity</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Expand</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${allVulnerabilities.map(vuln => `
+            <tr>
+              <td>${vuln.application}</td>
+              <td class="type">${vuln.type}</td>
+              <td class="tool">${vuln.tool}</td>
+              <td class="severity severity-${vuln.severity}">${vuln.severity.toUpperCase()}</td>
+              <td>${vuln.name}</td>
+              <td>${vuln.state}</td>
+              <td>
+                <button class="expand-btn" onclick="toggleRowDetails(this)">Expand</button>
+              </td>
+            </tr>
+            <tr class="details-row hidden">
+              <td colspan="7" class="details-content">
+                <div class="details-panel">
+                  <div class="detail-item">
+                    <strong>ID:</strong> ${vuln.id}
+                  </div>
+                  <div class="detail-item">
+                    <strong>Description:</strong> ${vuln.description}
+                  </div>
+                  ${vuln.url ? `<div class="detail-item">
+                    <strong>Link:</strong> <a href="${vuln.url}" target="_blank">View in ${vuln.tool}</a>
+                  </div>` : ''}
+                  ${vuln.type === 'Dependency Scanning' ? `
+                    <div class="detail-item">
+                      <strong>Package:</strong> ${vuln.additionalInfo.packageName || vuln.additionalInfo.package || 'N/A'}
                     </div>
-                  `
-                  : ''
-                }
-                ${
-                  (app.azureDevOpsResults.codeScanning.length > 0 || app.azureDevOpsResults.dependencyScanning.length > 0) 
-                  ? `
-                    <div class="azure-devops-section">
-                      <h4>Azure DevOps Results</h4>
-                      ${
-                        app.azureDevOpsResults.codeScanning.length > 0 
-                        ? `
-                          <div class="azure-devops-code">
-                            <h5>Code Scanning: ${app.azureDevOpsResults.codeScanning.length} issues</h5>
-                            ${renderResultsTable(app.azureDevOpsResults.codeScanning, "Code Scanning Results")}
-                          </div>
-                        ` 
-                        : ''
-                      }
-                      ${
-                        app.azureDevOpsResults.dependencyScanning.length > 0 
-                        ? `
-                          <div class="azure-devops-dependency">
-                            <h5>Dependency Scanning: ${app.azureDevOpsResults.dependencyScanning.length} issues</h5>
-                            ${renderResultsTable(app.azureDevOpsResults.dependencyScanning, "Dependency Scanning Results")}
-                          </div>
-                        ` 
-                        : ''
-                      }
+                    <div class="detail-item">
+                      <strong>Version:</strong> ${vuln.additionalInfo.version || vuln.additionalInfo.packageVersion || 'N/A'}
                     </div>
-                  `
-                  : ''
-                }
-              </div>
-            </details>
-          </div>
-        `;
-      }).join('')}
+                    <div class="detail-item">
+                      <strong>Fixed in:</strong> ${vuln.additionalInfo.fixedVersion || 'N/A'}
+                    </div>
+                    <div class="detail-item">
+                      <strong>CVE:</strong> ${vuln.additionalInfo.cveId || vuln.additionalInfo.vulnerabilityId || 'N/A'}
+                    </div>
+                    <div class="detail-item">
+                      <strong>CVSS:</strong> ${vuln.additionalInfo.cvss || vuln.additionalInfo.cvssScore || 'N/A'}
+                    </div>
+                  ` : `
+                    <div class="detail-item">
+                      <strong>File:</strong> ${vuln.additionalInfo.filePath || 'N/A'}
+                    </div>
+                    <div class="detail-item">
+                      <strong>Location:</strong> Line ${vuln.additionalInfo.startLine || vuln.additionalInfo.line || 'N/A'}, Column ${vuln.additionalInfo.startColumn || vuln.additionalInfo.column || 'N/A'}
+                    </div>
+                    <div class="detail-item">
+                      <strong>Rule ID:</strong> ${vuln.additionalInfo.ruleId}
+                    </div>
+                    <div class="detail-item">
+                      <strong>Rule Name:</strong> ${vuln.additionalInfo.ruleName}
+                    </div>
+                  `}
+                </div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
     </div>
   `;
 
@@ -448,157 +471,212 @@ const renderMultiApplicationReport = (data: MultiApplicationAggregatedScanningRe
     </div>
   `;
 
-  // Construct the full HTML document for multi-application report
+  // Construct the full HTML document for multi-application report with material design table
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Multi-Application Dependency and Code Scanning Report</title>
+    <title>Multi-Application Security Scanning Report</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 20px; }
-      .header { background-color: #f5f5f5; padding: 20px; border-radius: 5px; }
-      .summary { display: flex; flex-wrap: wrap; gap: 20px; margin: 20px 0; }
+      body { 
+        font-family: 'Roboto', Arial, sans-serif; 
+        margin: 20px; 
+        background-color: #f5f5f5;
+      }
+      .header { 
+        background-color: white; 
+        padding: 20px; 
+        border-radius: 4px; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+      }
+      .summary { 
+        display: flex; 
+        flex-wrap: wrap; 
+        gap: 15px; 
+        margin: 20px 0; 
+      }
       .summary-card { 
         border: 1px solid #ddd; 
-        border-radius: 5px; 
-        padding: 15px; 
+        border-radius: 4px; 
+        padding: 16px; 
         flex: 1; 
         min-width: 130px; 
+        background-color: white;
+        box-shadow: 0 2px 2px rgba(0,0,0,0.1);
       }
-      .summary-card h3 { margin-top: 0; }
-      table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-      th { background-color: #f2f2f2; }
-      tr:nth-child(even) { background-color: #f9f9f9; }
-      .severity-critical { color: #b30000; font-weight: bold; }
-      .severity-high { color: #e68a00; font-weight: bold; }
-      .severity-medium { color: #cc7a00; }
-      .severity-low { color: #666600; }
-      .severity-warning { color: #663d00; }
-      .severity-note { color: #999999; }
-      .results-table { margin: 30px 0; }
-      .tool-section { margin: 40px 0; }
-      h2 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-      h3 { color: #555; }
-      h4 { color: #666; margin-top: 25px; }
-      h5 { color: #777; margin-top: 20px; }
-      hr { margin: 40px 0; border: 0; border-top: 1px solid #eee; }
-      .overall-summary { margin-bottom: 40px; }
-      .severity-summary { margin-top: 30px; }
-      .error-section { margin: 40px 0; padding: 20px; border: 1px solid #ffcccc; background-color: #fff5f5; border-radius: 5px; }
-      .error-item { margin: 20px 0; padding: 15px; background-color: #ffffff; border: 1px solid #ffdddd; border-radius: 3px; }
-      .error-item h3 { margin-top: 0; color: #d00; }
-      
-      /* Application Grid Styles */
-      .application-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-        gap: 20px;
-        margin: 30px 0;
+      .summary-card h3 { 
+        margin-top: 0; 
+        font-size: 14px;
+        color: #666;
       }
-      
-      .application-card {
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 15px;
-        background-color: #fafafa;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      }
-      
-      .app-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 10px;
-      }
-      
-      .app-header h3 {
-        margin: 0;
+      .summary-card p { 
+        margin: 5px 0 0; 
+        font-size: 24px;
+        font-weight: bold;
         color: #333;
       }
       
-      .repo-type {
-        padding: 3px 8px;
+      /* Material Design Table Styles */
+      .vulnerabilities-table-container {
+        background-color: white;
         border-radius: 4px;
-        font-size: 0.8em;
-        font-weight: bold;
-        color: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        overflow: hidden;
       }
       
-      .repo-type.github {
-        background-color: #24292e;
+      .material-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
       }
       
-      .repo-type.azure-devops {
-        background-color: #0078d7;
-      }
-      
-      .branch {
-        margin: 8px 0;
+      .material-table th {
+        background-color: #f5f5f5;
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
         color: #666;
-        font-style: italic;
+        border-bottom: 1px solid #ddd;
       }
       
-      .app-summary {
-        margin: 15px 0;
+      .material-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #eee;
+        color: #333;
       }
       
-      .total-issues {
-        font-weight: bold;
-        margin-bottom: 10px;
+      .material-table tbody tr:hover {
+        background-color: #f9f9f9;
       }
       
-      .severity-breakdown {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
+      .severity-critical { color: #d32f2f; font-weight: bold; }
+      .severity-high { color: #f57c00; font-weight: bold; }
+      .severity-medium { color: #efbc00; }
+      .severity-low { color: #777; }
+      .severity-warning { color: #ffa000; }
+      .severity-note { color: #9e9e9e; }
+      
+      .type {
+        text-transform: capitalize;
+        font-weight: 500;
       }
       
-      .severity {
-        padding: 4px 8px;
-        border-radius: 3px;
-        font-size: 0.85em;
-        font-weight: bold;
+      .tool {
+        font-weight: 500;
+        color: #555;
       }
       
-      .severity.critical { color: #b30000; }
-      .severity.high { color: #e68a00; }
-      .severity.medium { color: #cc7a00; }
-      .severity.low { color: #666600; }
-      
-      .app-details {
-        margin-top: 15px;
-      }
-      
-      .app-details summary {
-        cursor: pointer;
-        padding: 8px;
-        background-color: #eee;
+      .expand-btn {
+        background-color: #e0e0e0;
+        border: none;
+        padding: 6px 12px;
         border-radius: 4px;
-        font-weight: bold;
+        cursor: pointer;
+        font-size: 12px;
       }
       
-      .app-details[open] summary {
-        margin-bottom: 15px;
+      .expand-btn:hover {
+        background-color: #d5d5d5;
       }
       
-      .app-results {
-        padding-top: 10px;
+      .details-row {
+        background-color: #f9f9f9;
+      }
+      
+      .details-content {
+        padding: 0 !important;
+      }
+      
+      .details-panel {
+        padding: 16px;
         border-top: 1px solid #eee;
       }
       
+      .detail-item {
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #eee;
+      }
+      
+      .detail-item:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+      }
+      
+      .hidden {
+        display: none;
+      }
+      
+      h2 { 
+        color: #333; 
+        border-bottom: none; 
+        padding-bottom: 10px; 
+        margin-top: 0;
+        font-weight: 500;
+      }
+      hr { 
+        margin: 40px 0; 
+        border: 0; 
+        border-top: 1px solid #eee; 
+      }
+      .overall-summary { 
+        margin-bottom: 40px; 
+      }
+      .severity-summary { 
+        margin-top: 30px; 
+      }
+      .error-section { 
+        margin: 40px 0; 
+        padding: 20px; 
+        border: 1px solid #ffcccc; 
+        background-color: #fff5f5; 
+        border-radius: 4px; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .error-item { 
+        margin: 20px 0; 
+        padding: 15px; 
+        background-color: white; 
+        border: 1px solid #ffdddd; 
+        border-radius: 3px; 
+      }
+      .error-item h3 { 
+        margin-top: 0; 
+        color: #d00; 
+      }
+      
+      footer {
+        background-color: white;
+        padding: 20px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+        color: #666;
+      }
+      
       @media (max-width: 768px) {
-        .application-grid {
-          grid-template-columns: 1fr;
+        .summary-card {
+          min-width: 100px;
+          flex: 1 1 100px;
+        }
+        
+        .material-table {
+          font-size: 12px;
+        }
+        
+        .material-table th,
+        .material-table td {
+          padding: 8px;
         }
       }
     </style>
   </head>
   <body>
     <div class="header">
-      <h1>Multi-Application Dependency and Code Scanning Report</h1>
+      <h1>Multi-Application Security Scanning Report</h1>
       <p><strong>Generated:</strong> ${timestamp.toISOString()}</p>
     </div>
 
@@ -606,12 +684,28 @@ const renderMultiApplicationReport = (data: MultiApplicationAggregatedScanningRe
 
     ${errorSection}
 
-    ${applicationGrid}
+    ${vulnerabilitiesTable}
 
     <footer>
-      <hr />
       <p>Generated by Multi-Application Dependency Analysis Tool at ${timestamp.toISOString()}</p>
     </footer>
+
+    <script>
+      function toggleRowDetails(button) {
+        const row = button.closest('tr');
+        const detailsRow = row.nextElementSibling;
+        
+        if (detailsRow && detailsRow.classList.contains('details-row')) {
+          if (detailsRow.classList.contains('hidden')) {
+            detailsRow.classList.remove('hidden');
+            button.textContent = 'Collapse';
+          } else {
+            detailsRow.classList.add('hidden');
+            button.textContent = 'Expand';
+          }
+        }
+      }
+    </script>
   </body>
 </html>`;
 };

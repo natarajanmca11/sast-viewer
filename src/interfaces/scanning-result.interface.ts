@@ -138,6 +138,20 @@ export interface ApplicationError {
   error: string;
 }
 
+// Comprehensive vulnerability interface for the report
+export interface VulnerabilityReportItem {
+  application: string;
+  tool: string;
+  type: 'Code Scanning' | 'Dependency Scanning';
+  id: string;
+  name: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'warning' | 'note';
+  description: string;
+  state: 'open' | 'fixed' | 'dismissed';
+  url?: string;
+  additionalInfo: any; // Contains tool-specific fields
+}
+
 // Aggregated result for multiple applications
 export interface MultiApplicationAggregatedScanningResult {
   applications: AggregatedScanningResult[];
