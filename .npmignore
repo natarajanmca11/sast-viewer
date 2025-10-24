@@ -1,0 +1,10 @@
+# Dependency Analysis Tool - npm ignore file
+
+# Do not publish development files
+src/
+tests/
+.git/
+*.md
+Makefile
+.eslintrc.js
+jest.config.js
