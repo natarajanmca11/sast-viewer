@@ -126,3 +126,24 @@ export interface ScanningRequestParams {
   applicationName: string;
   branchName: string;
 }
+
+// Aggregated result for multiple applications
+export interface MultiApplicationAggregatedScanningResult {
+  applications: AggregatedScanningResult[];
+  summary: {
+    totalApplications: number;
+    totalGithubCodeScanningIssues: number;
+    totalGithubDependencyScanningIssues: number;
+    totalAzureDevOpsCodeScanningIssues: number;
+    totalAzureDevOpsDependencyScanningIssues: number;
+    severitySummary: {
+      critical: number;
+      high: number;
+      medium: number;
+      low: number;
+      warning: number;
+      note: number;
+    };
+  };
+  timestamp: Date;
+}

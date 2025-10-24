@@ -19,6 +19,9 @@ export const OUTPUT_DIR = process.env.OUTPUT_DIR || './output';
 export const APPLICATION_NAME = process.env.APPLICATION_NAME || '';
 export const BRANCH_NAME = process.env.BRANCH_NAME || 'main';
 
+// Get multiple application names from environment variable
+export const APPLICATION_NAMES = APPLICATION_NAME.split(',').map(name => name.trim()).filter(name => name.length > 0);
+
 // Validate required environment variables
 export function validateEnvironmentVariables(): void {
   const requiredVars = [
@@ -35,5 +38,9 @@ export function validateEnvironmentVariables(): void {
   if (missingVars.length > 0) {
     const missingNames = missingVars.map(varDef => varDef.name).join(', ');
     throw new Error(`Missing required environment variables: ${missingNames}`);
+  }
+  
+  if (APPLICATION_NAMES.length === 0) {
+    throw new Error('No valid application names provided in APPLICATION_NAME environment variable');
   }
 }

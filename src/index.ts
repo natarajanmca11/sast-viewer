@@ -14,7 +14,8 @@ import {
 } from './services/AzureDevOpsService/AzureDevOpsDependencyScanningResultService';
 import { 
   AggregatedScanningResult, 
-  ScanningRequestParams 
+  ScanningRequestParams,
+  MultiApplicationAggregatedScanningResult
 } from './interfaces/scanning-result.interface';
 import { renderReport } from './utils/reportRenderer';
 import { 
@@ -27,7 +28,7 @@ import {
   AZURE_DEVOPS_TOKEN,
   AZURE_DEVOPS_BASE_URL,
   OUTPUT_DIR,
-  APPLICATION_NAME,
+  APPLICATION_NAMES,
   BRANCH_NAME
 } from './config/environment';
 import { exit } from 'process';
@@ -41,10 +42,10 @@ async function main(): Promise<void> {
     // Validate environment variables
     validateEnvironmentVariables();
     
-    Logger.info('Starting dependency and code scanning analysis...');
+    Logger.info('Starting dependency and code scanning analysis for multiple applications...');
     
-    // Create service instances
-    Logger.info(`Initializing services for application: ${APPLICATION_NAME}, branch: ${BRANCH_NAME}`);
+    // Create service instances (these can be reused for all applications)
+    Logger.info(`Initializing services for ${APPLICATION_NAMES.length} applications, branch: ${BRANCH_NAME}`);
     
     const githubCodeService = new GitHubCodeScanningResultService({
       orgName: GITHUB_ORG_NAME,
@@ -72,48 +73,115 @@ async function main(): Promise<void> {
       baseUrl: AZURE_DEVOPS_BASE_URL
     });
     
-    // Define request parameters
-    const params: ScanningRequestParams = {
-      applicationName: APPLICATION_NAME,
-      branchName: BRANCH_NAME
+    // Scan each application and collect results
+    const allApplicationsResults: AggregatedScanningResult[] = [];
+    
+    for (const appName of APPLICATION_NAMES) {
+      Logger.info(`Processing application: ${appName}`);
+      
+      // Define request parameters for this application
+      const params: ScanningRequestParams = {
+        applicationName: appName,
+        branchName: BRANCH_NAME
+      };
+      
+      // Fetch all scanning results in parallel for this application
+      Logger.info(`Fetching GitHub code scanning results for ${appName} on branch ${BRANCH_NAME}...`);
+      const githubCodeResults = await githubCodeService.fetchCodeScanningResults(params);
+      
+      Logger.info(`Fetching GitHub dependency scanning results for ${appName} on branch ${BRANCH_NAME}...`);
+      const githubDependencyResults = await githubDependencyService.fetchDependencyScanningResults(params);
+      
+      Logger.info(`Fetching Azure DevOps code scanning results for ${appName} on branch ${BRANCH_NAME}...`);
+      const azureDevOpsCodeResults = await azureDevOpsCodeService.fetchCodeScanningResults(params);
+      
+      Logger.info(`Fetching Azure DevOps dependency scanning results for ${appName} on branch ${BRANCH_NAME}...`);
+      const azureDevOpsDependencyResults = await azureDevOpsDependencyService.fetchDependencyScanningResults(params);
+      
+      // Create aggregation for this specific application
+      const appResults: AggregatedScanningResult = {
+        applicationName: appName,
+        branchName: BRANCH_NAME,
+        githubResults: {
+          codeScanning: githubCodeResults,
+          dependencyScanning: githubDependencyResults
+        },
+        azureDevOpsResults: {
+          codeScanning: azureDevOpsCodeResults,
+          dependencyScanning: azureDevOpsDependencyResults
+        },
+        timestamp: new Date()
+      };
+      
+      Logger.info(`Application ${appName}: Fetched ${githubCodeResults.length} GitHub code scanning results`);
+      Logger.info(`Application ${appName}: Fetched ${githubDependencyResults.length} GitHub dependency scanning results`);
+      Logger.info(`Application ${appName}: Fetched ${azureDevOpsCodeResults.length} Azure DevOps code scanning results`);
+      Logger.info(`Application ${appName}: Fetched ${azureDevOpsDependencyResults.length} Azure DevOps dependency scanning results`);
+      
+      allApplicationsResults.push(appResults);
+    }
+    
+    // Calculate summary statistics for all applications
+    let totalGithubCodeScanningIssues = 0;
+    let totalGithubDependencyScanningIssues = 0;
+    let totalAzureDevOpsCodeScanningIssues = 0;
+    let totalAzureDevOpsDependencyScanningIssues = 0;
+    
+    const severitySummary = {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      warning: 0,
+      note: 0
     };
     
-    // Fetch all scanning results in parallel
-    Logger.info(`Fetching GitHub code scanning results for ${APPLICATION_NAME} on branch ${BRANCH_NAME}...`);
-    const githubCodeResults = await githubCodeService.fetchCodeScanningResults(params);
+    // Calculate totals
+    for (const appResult of allApplicationsResults) {
+      totalGithubCodeScanningIssues += appResult.githubResults.codeScanning.length;
+      totalGithubDependencyScanningIssues += appResult.githubResults.dependencyScanning.length;
+      totalAzureDevOpsCodeScanningIssues += appResult.azureDevOpsResults.codeScanning.length;
+      totalAzureDevOpsDependencyScanningIssues += appResult.azureDevOpsResults.dependencyScanning.length;
+      
+      // Count severity across all issues
+      [...appResult.githubResults.codeScanning, ...appResult.githubResults.dependencyScanning,
+       ...appResult.azureDevOpsResults.codeScanning, ...appResult.azureDevOpsResults.dependencyScanning]
+       .forEach(issue => {
+         switch (issue.severity) {
+           case 'critical': severitySummary.critical++; break;
+           case 'high': severitySummary.high++; break;
+           case 'medium': severitySummary.medium++; break;
+           case 'low': severitySummary.low++; break;
+           case 'warning': severitySummary.warning++; break;
+           case 'note': severitySummary.note++; break;
+         }
+       });
+    }
     
-    Logger.info(`Fetching GitHub dependency scanning results for ${APPLICATION_NAME} on branch ${BRANCH_NAME}...`);
-    const githubDependencyResults = await githubDependencyService.fetchDependencyScanningResults(params);
-    
-    Logger.info(`Fetching Azure DevOps code scanning results for ${APPLICATION_NAME} on branch ${BRANCH_NAME}...`);
-    const azureDevOpsCodeResults = await azureDevOpsCodeService.fetchCodeScanningResults(params);
-    
-    Logger.info(`Fetching Azure DevOps dependency scanning results for ${APPLICATION_NAME} on branch ${BRANCH_NAME}...`);
-    const azureDevOpsDependencyResults = await azureDevOpsDependencyService.fetchDependencyScanningResults(params);
-    
-    // Aggregate results
-    const aggregatedResults: AggregatedScanningResult = {
-      applicationName: APPLICATION_NAME,
-      branchName: BRANCH_NAME,
-      githubResults: {
-        codeScanning: githubCodeResults,
-        dependencyScanning: githubDependencyResults
-      },
-      azureDevOpsResults: {
-        codeScanning: azureDevOpsCodeResults,
-        dependencyScanning: azureDevOpsDependencyResults
+    // Create multi-application aggregated results
+    const multiAppResults: MultiApplicationAggregatedScanningResult = {
+      applications: allApplicationsResults,
+      summary: {
+        totalApplications: APPLICATION_NAMES.length,
+        totalGithubCodeScanningIssues,
+        totalGithubDependencyScanningIssues,
+        totalAzureDevOpsCodeScanningIssues,
+        totalAzureDevOpsDependencyScanningIssues,
+        severitySummary
       },
       timestamp: new Date()
     };
     
-    Logger.info(`Fetched ${githubCodeResults.length} GitHub code scanning results`);
-    Logger.info(`Fetched ${githubDependencyResults.length} GitHub dependency scanning results`);
-    Logger.info(`Fetched ${azureDevOpsCodeResults.length} Azure DevOps code scanning results`);
-    Logger.info(`Fetched ${azureDevOpsDependencyResults.length} Azure DevOps dependency scanning results`);
+    Logger.info(`Scanning summary: Total applications: ${APPLICATION_NAMES.length}`);
+    Logger.info(`Scanning summary: GitHub code issues: ${totalGithubCodeScanningIssues}`);
+    Logger.info(`Scanning summary: GitHub dependency issues: ${totalGithubDependencyScanningIssues}`);
+    Logger.info(`Scanning summary: Azure DevOps code issues: ${totalAzureDevOpsCodeScanningIssues}`);
+    Logger.info(`Scanning summary: Azure DevOps dependency issues: ${totalAzureDevOpsDependencyScanningIssues}`);
     
-    // Generate HTML report
-    Logger.info('Generating HTML report...');
-    const reportHtml = renderReport(aggregatedResults);
+    // Generate HTML report for multiple applications
+    Logger.info('Generating multi-application HTML report...');
+    // Note: We'll need to update renderReport function to handle MultiApplicationAggregatedScanningResult
+    const reportHtml = renderReport(multiAppResults);
     
     // Ensure output directory exists
     if (!fs.existsSync(OUTPUT_DIR)) {
@@ -127,14 +195,14 @@ async function main(): Promise<void> {
       .replace('T', 'T')      // Keep T as is
       .slice(0, -5) + 'Z';    // Replace '000Z' with 'Z'
     
-    const filename = `${timestamp}.html`;
+    const filename = `multi-app-report-${timestamp}.html`;
     const filepath = path.join(OUTPUT_DIR, filename);
     
     // Write report to file
     fs.writeFileSync(filepath, reportHtml);
     
-    Logger.info(`Report generated successfully: ${filepath}`);
-    Logger.info('Dependency and code scanning analysis completed successfully');
+    Logger.info(`Multi-application report generated successfully: ${filepath}`);
+    Logger.info('Multi-application dependency and code scanning analysis completed successfully');
   } catch (error: any) {
     Logger.error('Error occurred during analysis:', error.message);
     exit(1);

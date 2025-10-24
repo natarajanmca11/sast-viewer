@@ -49,8 +49,10 @@ A TypeScript-based Node.js application that retrieves code scanning and dependen
    AZURE_DEVOPS_BASE_URL= # Optional, defaults to Azure DevOps URL
 
    # Application Configuration
+   # For single application: APPLICATION_NAME=your-application-name
+   # For multiple applications: APPLICATION_NAME=app1,app2,app3
    APPLICATION_NAME=your-application-repository-name
-   BRANCH_NAME=main # The branch to scan
+   BRANCH_NAME=main # The branch to scan (applies to all applications)
    OUTPUT_DIR=./output # Directory for generated reports
    ```
 
@@ -91,19 +93,20 @@ npm run dev
 | `AZURE_DEVOPS_ORG_NAME` | Azure DevOps organization name | Yes |
 | `AZURE_DEVOPS_PROJECT_NAME` | Azure DevOps project name | Yes |
 | `AZURE_DEVOPS_TOKEN` | Azure DevOps personal access token | Yes |
-| `APPLICATION_NAME` | Name of the application/repository to analyze | Yes |
-| `BRANCH_NAME` | Branch name to analyze (default: main) | No |
+| `APPLICATION_NAME` | Name of the application/repository to analyze. For single application: `app1`. For multiple applications: `app1,app2,app3` | Yes |
+| `BRANCH_NAME` | Branch name to analyze (default: main). Applied to all applications. | No |
 | `OUTPUT_DIR` | Directory to save reports (default: ./output) | No |
 
 ## Output
 
-The application generates a timestamped HTML report in the `output` directory (configurable via `OUTPUT_DIR` environment variable). The filename format is `YYYY-MM-DDTHH-MM-SSZ.html` (e.g., `2025-10-24T12-00-00Z.html`).
+The application generates a timestamped HTML report in the `output` directory (configurable via `OUTPUT_DIR` environment variable).
+
+- For single application: The filename format is `YYYY-MM-DDTHH-MM-SSZ.html` (e.g., `2025-10-24T12-00-00Z.html`)
+- For multiple applications: The filename format is `multi-app-report-YYYY-MM-DDTHH-MM-SSZ.html` (e.g., `multi-app-report-2025-10-24T12-00-00Z.html`)
 
 The report includes:
-- Summary cards with issue counts by severity and tool
-- Detailed tables for code scanning results from both platforms
-- Detailed tables for dependency scanning results from both platforms
-- Timestamp of when the report was generated
+- **Single Application Report**: Summary cards with issue counts by severity and tool, detailed tables for code and dependency scanning results from both platforms, and a generation timestamp
+- **Multi-Application Report**: Overall summary showing total counts across all applications, detailed breakdown by severity, and individual application sections with their own summaries and detailed results
 
 ## Project Structure
 

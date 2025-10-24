@@ -1,5 +1,5 @@
 {
-  "name": "dependencyanalysis",
+  "name": "sast-dependency-analyzer",
   "version": "1.0.0",
   "description": "A tool for analyzing project dependencies",
   "main": "dist/index.js",
