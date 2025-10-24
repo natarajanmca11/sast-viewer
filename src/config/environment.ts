@@ -16,14 +16,14 @@ export const AZURE_DEVOPS_BASE_URL = process.env.AZURE_DEVOPS_BASE_URL || '';
 
 // Application configuration
 export const OUTPUT_DIR = process.env.OUTPUT_DIR || './output';
-export const APPLICATION_NAME = process.env.APPLICATION_NAME || '';
+export const APPLICATION_NAME = process.env.APPLICATION_NAME || ''; // For backward compatibility
+export const GITHUB_APPLICATION_NAMES = process.env.GITHUB_APPLICATION_NAMES || APPLICATION_NAME;
+export const AZURE_DEVOPS_APPLICATION_NAMES = process.env.AZURE_DEVOPS_APPLICATION_NAMES || APPLICATION_NAME;
 export const BRANCH_NAME = process.env.BRANCH_NAME || 'main';
 
-// Get multiple application names from environment variable
-export const APPLICATION_NAMES = APPLICATION_NAME.split(',').map(name => name.trim()).filter(name => name.length > 0);
-
-// Azure DevOps project name from environment, can be overridden by project/application format
-export const AZURE_DEVOPS_PROJECT_NAME_DEFAULT = process.env.AZURE_DEVOPS_PROJECT_NAME || '';
+// Get multiple application names from environment variables
+export const GITHUB_APP_NAMES_ARRAY = GITHUB_APPLICATION_NAMES.split(',').map(name => name.trim()).filter(name => name.length > 0);
+export const AZURE_DEVOPS_APP_NAMES_ARRAY = AZURE_DEVOPS_APPLICATION_NAMES.split(',').map(name => name.trim()).filter(name => name.length > 0);
 
 // Validate required environment variables
 export function validateEnvironmentVariables(): void {
@@ -31,9 +31,13 @@ export function validateEnvironmentVariables(): void {
     { name: 'GITHUB_ORG_NAME', value: GITHUB_ORG_NAME },
     { name: 'GITHUB_TOKEN', value: GITHUB_TOKEN },
     { name: 'AZURE_DEVOPS_ORG_NAME', value: AZURE_DEVOPS_ORG_NAME },
-    { name: 'AZURE_DEVOPS_TOKEN', value: AZURE_DEVOPS_TOKEN },
-    { name: 'APPLICATION_NAME', value: APPLICATION_NAME }
+    { name: 'AZURE_DEVOPS_TOKEN', value: AZURE_DEVOPS_TOKEN }
   ];
+
+  // At least one application source must be defined
+  if (GITHUB_APP_NAMES_ARRAY.length === 0 && AZURE_DEVOPS_APP_NAMES_ARRAY.length === 0) {
+    requiredVars.push({ name: 'GITHUB_APPLICATION_NAMES or AZURE_DEVOPS_APPLICATION_NAMES', value: GITHUB_APPLICATION_NAMES || AZURE_DEVOPS_APPLICATION_NAMES });
+  }
 
   const missingVars = requiredVars.filter(varDef => !varDef.value);
 
@@ -42,23 +46,7 @@ export function validateEnvironmentVariables(): void {
     throw new Error(`Missing required environment variables: ${missingNames}`);
   }
   
-  if (APPLICATION_NAMES.length === 0) {
-    throw new Error('No valid application names provided in APPLICATION_NAME environment variable');
-  }
-}
-
-// Function to extract project and application names if using project/application format
-export function parseApplicationName(appName: string): { projectName: string, applicationName: string } {
-  if (appName.includes('/')) {
-    const [project, ...appParts] = appName.split('/');
-    return {
-      projectName: project,
-      applicationName: appParts.join('/') // Handle cases with multiple slashes
-    };
-  } else {
-    return {
-      projectName: AZURE_DEVOPS_PROJECT_NAME_DEFAULT, // Use default project name from env
-      applicationName: appName
-    };
+  if (GITHUB_APP_NAMES_ARRAY.length === 0 && AZURE_DEVOPS_APP_NAMES_ARRAY.length === 0) {
+    throw new Error('No valid application names provided in GITHUB_APPLICATION_NAMES or AZURE_DEVOPS_APPLICATION_NAMES environment variables');
   }
 }

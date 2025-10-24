@@ -49,10 +49,12 @@ A TypeScript-based Node.js application that retrieves code scanning and dependen
    AZURE_DEVOPS_BASE_URL= # Optional, defaults to Azure DevOps URL
 
    # Application Configuration
-   # For single application: APPLICATION_NAME=your-application-name
-   # For single Azure DevOps application with project override: APPLICATION_NAME=projectname/applicationname
-   # For multiple applications: APPLICATION_NAME=app1,app2,project1/app1,project2/app2
-   APPLICATION_NAME=your-application-repository-name
+   # For GitHub applications: GITHUB_APPLICATION_NAMES=repo1,repo2,repo3
+   GITHUB_APPLICATION_NAMES=your-github-repo-name
+   # For Azure DevOps applications: AZURE_DEVOPS_APPLICATION_NAMES=project1/app1,project2/app2,standalone-app
+   AZURE_DEVOPS_APPLICATION_NAMES=your-azure-devops-app-name
+   # For backward compatibility, APPLICATION_NAME can be used for both (deprecated)
+   # APPLICATION_NAME=your-application-name
    BRANCH_NAME=main # The branch to scan (applies to all applications)
    OUTPUT_DIR=./output # Directory for generated reports
    ```
@@ -92,9 +94,11 @@ npm run dev
 | `GITHUB_TOKEN` | GitHub personal access token | Yes |
 | `GITHUB_BASE_URL` | GitHub API base URL (default: https://api.github.com) | No |
 | `AZURE_DEVOPS_ORG_NAME` | Azure DevOps organization name | Yes |
-| `AZURE_DEVOPS_PROJECT_NAME` | Default Azure DevOps project name. Used when APPLICATION_NAME doesn't contain '/'. Can be overridden per application using format `projectname/applicationname` | Yes |
+| `AZURE_DEVOPS_PROJECT_NAME` | Default Azure DevOps project name. Used when AZURE_DEVOPS_APPLICATION_NAMES doesn't contain '/'. Can be overridden per application using format `projectname/applicationname` | Yes |
 | `AZURE_DEVOPS_TOKEN` | Azure DevOps personal access token | Yes |
-| `APPLICATION_NAME` | Name of the application/repository to analyze. For single application: `app1`. For Azure DevOps with project override: `projectname/applicationname`. For multiple applications: `app1,app2,project1/app1,project2/app2` | Yes |
+| `GITHUB_APPLICATION_NAMES` | GitHub repository names to analyze. For single repository: `repo1`. For multiple repositories: `repo1,repo2,repo3` | No |
+| `AZURE_DEVOPS_APPLICATION_NAMES` | Azure DevOps application names to analyze. For single application with project: `projectname/applicationname`. For multiple applications: `project1/app1,project2/app2,standalone-app` | No |
+| `APPLICATION_NAME` | **Deprecated**: Use GITHUB_APPLICATION_NAMES and/or AZURE_DEVOPS_APPLICATION_NAMES instead. For backward compatibility: For single application: `app1`. For Azure DevOps with project override: `projectname/applicationname`. For multiple applications: `app1,app2,project1/app1,project2/app2` | No |
 | `BRANCH_NAME` | Branch name to analyze (default: main). Applied to all applications. | No |
 | `OUTPUT_DIR` | Directory to save reports (default: ./output) | No |
 
