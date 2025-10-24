@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios from 'axios';
 import { 
   AzureDevOpsDependencyScanningResult, 
   AzureDevOpsServiceParams, 
@@ -7,18 +7,16 @@ import {
 import { Logger } from '../../utils/logger';
 
 export class AzureDevOpsDependencyScanningResultService {
-  private readonly _client: AxiosInstance; // Used in real implementation for API calls to security tools
+  private readonly orgName: string;
+  private readonly defaultProjectName: string;
+  private readonly token: string;
+  private readonly baseUrl?: string;
 
   constructor(params: AzureDevOpsServiceParams) {
-    // Properties are used in the Axios client configuration below
-    this._client = axios.create({
-      baseURL: params.baseUrl || `https://dev.azure.com/${params.orgName}/${params.projectName}/_apis`,
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`:${params.token}`).toString('base64')}`,
-        'Accept': 'application/json'
-      },
-      timeout: 30000
-    });
+    this.orgName = params.orgName;
+    this.defaultProjectName = params.projectName;
+    this.token = params.token;
+    this.baseUrl = params.baseUrl;
   }
 
   /**
@@ -29,26 +27,33 @@ export class AzureDevOpsDependencyScanningResultService {
   async fetchDependencyScanningResults(params: ScanningRequestParams): Promise<AzureDevOpsDependencyScanningResult[]> {
     const { applicationName, branchName } = params;
     
-    Logger.info(`Fetching Azure DevOps dependency scanning results for ${applicationName} on branch ${branchName}`);
+    // Extract project name from application name if in project/app format, otherwise use default
+    let projectName = this.defaultProjectName;
+    if (applicationName.includes('/')) {
+      projectName = applicationName.split('/')[0];
+    }
+    
+    // Create client with the appropriate project name
+    const client = axios.create({
+      baseURL: this.baseUrl || `https://dev.azure.com/${this.orgName}/${projectName}/_apis`,
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`:${this.token}`).toString('base64')}`,
+        'Accept': 'application/json'
+      },
+      timeout: 30000
+    });
+    
+    Logger.info(`Fetching Azure DevOps dependency scanning results for project: ${projectName}, application: ${applicationName}, on branch ${branchName}`);
     Logger.warn('Azure DevOps Dependency Scanning: Direct API integration would be needed for specific tools like WhiteSource Bolt');
     
     try {
       // Access the client to acknowledge its usage (will be used in real implementation)
-      const clientConfig = this._client.defaults;
+      const clientConfig = client.defaults;
       Logger.debug(`Client configured for: ${clientConfig.baseURL}`); // Use the config to make it "used"
       
-      // In Azure DevOps, dependency scanning results might come from:
-      // 1. WhiteSource Bolt integration
-      // 2. Azure Artifacts vulnerability detection
-      // 3. Third-party security tools integrated via API
-      
-      // For now, we're simulating results, but in a real implementation:
-      // - We would make API calls using this._client to external security tools
-      // - We would fetch actual data instead of simulated results
-      // Example: const response = await this._client.get('/path/to/security/api');
-      
+      // In a real implementation, this would connect to security analysis tools
       // For demonstration, we'll return simulated results
-      Logger.info(`Generating simulated dependency scanning results for ${applicationName} on branch ${branchName}`);
+      Logger.info(`Generating simulated dependency scanning results for project: ${projectName}, application: ${applicationName}, on branch ${branchName}`);
       
       // Simulate results from a security scan
       return this.generateSimulatedResults(applicationName, branchName);

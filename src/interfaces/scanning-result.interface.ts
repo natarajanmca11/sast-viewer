@@ -127,6 +127,11 @@ export interface ScanningRequestParams {
   branchName: string;
 }
 
+// Enhanced request params with project name override
+export interface AzureDevOpsScanningRequestParams extends ScanningRequestParams {
+  projectName?: string; // Override for when application name is in project/app format
+}
+
 // Aggregated result for multiple applications
 export interface MultiApplicationAggregatedScanningResult {
   applications: AggregatedScanningResult[];

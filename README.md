@@ -50,7 +50,8 @@ A TypeScript-based Node.js application that retrieves code scanning and dependen
 
    # Application Configuration
    # For single application: APPLICATION_NAME=your-application-name
-   # For multiple applications: APPLICATION_NAME=app1,app2,app3
+   # For single Azure DevOps application with project override: APPLICATION_NAME=projectname/applicationname
+   # For multiple applications: APPLICATION_NAME=app1,app2,project1/app1,project2/app2
    APPLICATION_NAME=your-application-repository-name
    BRANCH_NAME=main # The branch to scan (applies to all applications)
    OUTPUT_DIR=./output # Directory for generated reports
@@ -91,9 +92,9 @@ npm run dev
 | `GITHUB_TOKEN` | GitHub personal access token | Yes |
 | `GITHUB_BASE_URL` | GitHub API base URL (default: https://api.github.com) | No |
 | `AZURE_DEVOPS_ORG_NAME` | Azure DevOps organization name | Yes |
-| `AZURE_DEVOPS_PROJECT_NAME` | Azure DevOps project name | Yes |
+| `AZURE_DEVOPS_PROJECT_NAME` | Default Azure DevOps project name. Used when APPLICATION_NAME doesn't contain '/'. Can be overridden per application using format `projectname/applicationname` | Yes |
 | `AZURE_DEVOPS_TOKEN` | Azure DevOps personal access token | Yes |
-| `APPLICATION_NAME` | Name of the application/repository to analyze. For single application: `app1`. For multiple applications: `app1,app2,app3` | Yes |
+| `APPLICATION_NAME` | Name of the application/repository to analyze. For single application: `app1`. For Azure DevOps with project override: `projectname/applicationname`. For multiple applications: `app1,app2,project1/app1,project2/app2` | Yes |
 | `BRANCH_NAME` | Branch name to analyze (default: main). Applied to all applications. | No |
 | `OUTPUT_DIR` | Directory to save reports (default: ./output) | No |
 

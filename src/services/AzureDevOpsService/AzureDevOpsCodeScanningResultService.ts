@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios from 'axios';
 import { 
   AzureDevOpsCodeScanningResult, 
   AzureDevOpsServiceParams, 
@@ -7,18 +7,16 @@ import {
 import { Logger } from '../../utils/logger';
 
 export class AzureDevOpsCodeScanningResultService {
-  private readonly client: AxiosInstance;
+  private readonly orgName: string;
+  private readonly defaultProjectName: string;
+  private readonly token: string;
+  private readonly baseUrl?: string;
 
   constructor(params: AzureDevOpsServiceParams) {
-    // Properties are used in the Axios client configuration below
-    this.client = axios.create({
-      baseURL: params.baseUrl || `https://dev.azure.com/${params.orgName}/${params.projectName}/_apis`,
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`:${params.token}`).toString('base64')}`,
-        'Accept': 'application/json'
-      },
-      timeout: 30000
-    });
+    this.orgName = params.orgName;
+    this.defaultProjectName = params.projectName;
+    this.token = params.token;
+    this.baseUrl = params.baseUrl;
   }
 
   /**
@@ -30,7 +28,23 @@ export class AzureDevOpsCodeScanningResultService {
   async fetchCodeScanningResults(params: ScanningRequestParams): Promise<AzureDevOpsCodeScanningResult[]> {
     const { applicationName, branchName } = params;
     
-    Logger.info(`Fetching Azure DevOps code scanning results for ${applicationName} on branch ${branchName}`);
+    // Extract project name from application name if in project/app format, otherwise use default
+    let projectName = this.defaultProjectName;
+    if (applicationName.includes('/')) {
+      projectName = applicationName.split('/')[0];
+    }
+    
+    // Create client with the appropriate project name
+    const client = axios.create({
+      baseURL: this.baseUrl || `https://dev.azure.com/${this.orgName}/${projectName}/_apis`,
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`:${this.token}`).toString('base64')}`,
+        'Accept': 'application/json'
+      },
+      timeout: 30000
+    });
+    
+    Logger.info(`Fetching Azure DevOps code scanning results for project: ${projectName}, application: ${applicationName}, on branch ${branchName}`);
     Logger.warn('Azure DevOps Code Scanning: Direct API not available - would need to connect to external security tools like SonarQube, Checkmarx, etc.');
     
     try {
@@ -39,7 +53,7 @@ export class AzureDevOpsCodeScanningResultService {
       // For this example, we'll simulate getting results from Azure DevOps Pipelines or similar
       
       // First, get build information to identify the branch and commit
-      const buildsResponse = await this.client.get('/build/builds', {
+      const buildsResponse = await client.get('/build/builds', {
         params: {
           branchName: `refs/heads/${branchName}`,
           $top: 10,
@@ -48,14 +62,14 @@ export class AzureDevOpsCodeScanningResultService {
       });
 
       if (!buildsResponse.data || !buildsResponse.data.value || !Array.isArray(buildsResponse.data.value)) {
-        Logger.warn(`No Azure DevOps builds found for ${applicationName} on branch ${branchName}`);
+        Logger.warn(`No Azure DevOps builds found for project: ${projectName}, application: ${applicationName}, on branch ${branchName}`);
         return [];
       }
 
       // In a real implementation, this would connect to security analysis tools
       // For simulation purposes, we'll return empty results
       // In a real implementation, you would fetch from SonarQube, Checkmarx, etc.
-      Logger.info(`Found ${buildsResponse.data.value.length} builds for ${applicationName} on branch ${branchName}, but no code scanning data available`);
+      Logger.info(`Found ${buildsResponse.data.value.length} builds for project: ${projectName}, application: ${applicationName}, on branch ${branchName}, but no code scanning data available`);
       return [];
     } catch (error: any) {
       if (error.response) {
